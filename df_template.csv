@@ -1,0 +1,80 @@
+,index,Title,Body,Tags,Id,Score,CreationDate,ViewCount,FavoriteCount,AnswerCount
+0,15296,Android 11 users can’t grant background location permission?,"<p>As of Android 11, apps targeting SDK 30+ will not show a user an option to grant background location permission to an app more than once.  If not initially granted, it requires users to go to a settings page.  <strong>How do we bring a user to the proper settings page?</strong></p>
+<blockquote>
+<p>When a feature in your app requests background location on a device that runs Android 11 or higher, the system dialog doesn't include a button to enable background location access. In order to enable background location access, users must set the Allow all the time option for your app's location permission on a settings page, as described in the guide on how to Request background location.</p>
+</blockquote>
+<p><a href=""https://developer.android.com/about/versions/11/privacy/location#change-details"" rel=""noreferrer"">https://developer.android.com/about/versions/11/privacy/location#change-details</a></p>
+<blockquote>
+<p>The user-visible label of the settings option that grants background location (for example, Allow all the time in figure 3). You can callgetBackgroundPermissionOptionLabel() to get this label. The return value of this method is localized to the user's device language preference.</p>
+</blockquote>
+<p><a href=""https://developer.android.com/training/location/permissions#request-location-access-runtime"" rel=""noreferrer"">https://developer.android.com/training/location/permissions#request-location-access-runtime</a></p>
+<p>While Android provides a new API to get this settings page label, there is no documented API to bring up this settings page directly.  The closest you can come is to bring up the app-specific settings page as described below.  From there, the user must perform at least two taps to drill down to Permissions -&gt; Location to enable background access.  This is an onerous process that many users will fail to complete.</p>
+<p>The lack of an API to bring up a settings page has been documented for a long time in this question, but is far more important as of the release of Android 11, as there is no other way of granting background permission.</p>
+<p><a href=""https://stackoverflow.com/questions/32822101/how-to-programmatically-open-the-permission-screen-for-a-specific-app-on-android"">How to programmatically open the Permission Screen for a specific app on Android Marshmallow?</a></p>
+<p>It is possible to bring the user to the proper settings page the very first time the user is asked using code like this:  <code>requestPermissions(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION), PERMISSION_REQUEST_BACKGROUND_LOCATION)</code>.  This will work only once.  If the user denies the permission (or even accidentally hits back or leaves the screen without granting), this will never work again, and the user must manually drill-down in settings as described above.</p>
+<p><strong>Is there there really no way for an app to help users grant background location permission after an initial denial other than to instruct them to go hunting for the right page in Settings?</strong></p>
+<p>Am I missing something?  If not, isn’t this a major Android 11 usability problem?</p>
+<p>A full example of code needed to trigger the proper settings page in a first time prompt, but the inability to do it ever again is here:</p>
+<pre><code>        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            if (checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                if (shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_BACKGROUND_LOCATION)) {
+                    val builder =
+                        AlertDialog.Builder(this)
+                    builder.setTitle(&quot;This app needs background location access&quot;)
+                    builder.setMessage(&quot;Please grant location access so this app can detect beacons in the background.&quot;)
+                    builder.setPositiveButton(android.R.string.ok, null)
+                    builder.setOnDismissListener {
+                        requestPermissions(
+                            arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION),
+                            PERMISSION_REQUEST_BACKGROUND_LOCATION
+                        )
+                    }
+                    builder.show()
+                } else {
+                    if (android.os.Build.VERSION.SDK_INT &gt;= android.os.Build.VERSION_CODES.Q) {
+                        val builder =
+                            AlertDialog.Builder(this)
+                        builder.setTitle(&quot;Functionality limited&quot;)
+                        builder.setMessage(&quot;Since background location access has not been granted, this app will not be able to discover beacons in the background.  Please go to Settings -&gt; Applications -&gt; Permissions and grant background location access to this app.&quot;)
+                        builder.setPositiveButton(android.R.string.ok, null)
+                        builder.setOnDismissListener {
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                            val uri: Uri = Uri.fromParts(&quot;package&quot;, packageName, null)
+                            intent.data = uri
+                            // This will take the user to a page where they have to click twice to drill down to grant the permission
+                            startActivity(intent)
+                        }
+                        builder.show()
+                    }
+                }
+            }
+        } else {
+            if (!shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION)) {
+                requestPermissions(
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                        /*Manifest.permission.ACCESS_BACKGROUND_LOCATION*/
+                    ),
+                    PERMISSION_REQUEST_FINE_LOCATION
+                )
+            } else {
+                val builder = AlertDialog.Builder(this)
+                builder.setTitle(&quot;Functionality limited&quot;)
+                builder.setMessage(&quot;Since location access has not been granted, this app will not be able to discover beacons.  Please go to Settings -&gt; Applications -&gt; Permissions and grant location access to this app.&quot;)
+                builder.setPositiveButton(android.R.string.ok, null)
+                builder.setOnDismissListener {
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    val uri: Uri = Uri.fromParts(&quot;package&quot;, packageName, null)
+                    intent.data = uri
+                    // This will take the user to a page where they have to click twice to drill down to grant the permission
+                    startActivity(intent)
+                }
+                builder.show()
+            }
+        }
+
+
+</code></pre>
+",<android><location><android-permissions><beacon><android-geofence>,64246883,34,2020-10-07 15:03:39,22622,18,2
